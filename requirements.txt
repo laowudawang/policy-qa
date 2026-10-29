@@ -1,0 +1,5 @@
+# 主程序（app.py / auth.py）不需要任何第三方包，仅用 Python 标准库。
+# 下面这项只有 tools/ingest_pdf.py（从 PDF 批量导入制度）才需要。
+# 不导入 PDF 的话可以不装。
+
+pypdf>=3.0

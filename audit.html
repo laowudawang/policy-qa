@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PolicyQA · 审计留痕</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,"Microsoft YaHei",system-ui,sans-serif;background:#f5f5f4;color:#1c1c1c;min-height:100vh;display:flex;flex-direction:column}
+  header{background:#1f3a5f;color:#fff;padding:14px 22px;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+  header .logo{width:34px;height:34px;border-radius:8px;background:#fff;color:#1f3a5f;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px}
+  header h1{font-size:17px;font-weight:500}
+  header .sub{font-size:12px;opacity:.75}
+  header .back{color:#fff;font-size:12px;text-decoration:none;border:1px solid rgba(255,255,255,.35);border-radius:7px;padding:5px 10px;background:rgba(255,255,255,.12);white-space:nowrap}
+  header .back:hover{background:rgba(255,255,255,.22)}
+  header .whoami{margin-left:auto;font-size:12px;opacity:.85;white-space:nowrap}
+  main{flex:1;padding:18px;max-width:1180px;width:100%;margin:0 auto}
+  .cards{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+  .card{background:#fff;border:1px solid #e7e5e4;border-radius:10px;padding:10px 16px;min-width:100px}
+  .card .n{font-size:22px;font-weight:600;line-height:1.2}
+  .card .l{font-size:12px;color:#78716c;margin-top:2px}
+  .card.warn .n{color:#b45309}
+  .card.danger .n{color:#991b1b}
+  .bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:12px}
+  .chip{border:1px solid #e7e5e4;background:#fff;border-radius:14px;padding:4px 12px;font-size:12px;color:#57534e;cursor:pointer}
+  .chip:hover{border-color:#1f3a5f;color:#1f3a5f}
+  .chip.on{background:#1f3a5f;border-color:#1f3a5f;color:#fff}
+  .bar select{margin-left:auto;font-family:inherit;font-size:12px;border:1px solid #e7e5e4;border-radius:8px;padding:5px 8px;background:#fff;color:#57534e;outline:none}
+  .panel{background:#fff;border:1px solid #e7e5e4;border-radius:10px;overflow:hidden}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{background:#fafaf9;text-align:left;padding:9px 12px;font-weight:600;font-size:12px;color:#57534e;border-bottom:1px solid #e7e5e4;white-space:nowrap}
+  td{padding:9px 12px;border-bottom:1px solid #f0efed;vertical-align:top;line-height:1.55}
+  tr:last-child td{border-bottom:none}
+  tbody tr:hover td{background:#fafaf9}
+  .badge{display:inline-block;font-size:11px;border-radius:4px;padding:1px 7px;white-space:nowrap}
+  .b-answered{background:#dcfce7;color:#166534}
+  .b-rejected,.b-denied,.b-abolished{background:#fef3c7;color:#92400e}
+  .b-clarify{background:#e0e7ff;color:#3730a3}
+  .b-secret{background:#fee2e2;color:#991b1b}
+  .b-empty{background:#e7e5e4;color:#57534e}
+  .egress{display:inline-block;font-size:11px;color:#a8a29e;margin-left:6px;white-space:nowrap}
+  .role-b{display:inline-block;font-size:11px;border-radius:4px;padding:1px 6px;background:#e7e5e4;color:#57534e;white-space:nowrap}
+  .emp{display:block;font-size:10.5px;color:#b3ada6;margin-top:2px}
+  .q{font-weight:500;min-width:150px}
+  .srcchip{display:inline-block;font-size:11px;color:#57534e;background:#f5f5f4;border:1px solid #e7e5e4;border-radius:4px;padding:1px 6px;margin:0 4px 3px 0}
+  .ans{color:#78716c;max-width:330px}
+  .ans .more{color:#1f3a5f;cursor:pointer;font-size:12px;white-space:nowrap}
+  .foot{font-size:11px;color:#a8a29e;margin-top:10px;line-height:1.7}
+  .msgbox{margin:60px auto;max-width:460px;background:#fff;border:1px solid #e7e5e4;border-radius:12px;padding:28px;text-align:center}
+  .msgbox .icon{font-size:30px}
+  .msgbox h2{font-size:16px;margin:10px 0 8px}
+  .msgbox p{font-size:13px;color:#78716c;line-height:1.8}
+  .msgbox a{color:#1f3a5f}
+  .loading{padding:40px;text-align:center;color:#78716c;font-size:13px}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">东</div>
+  <h1>PolicyQA · 审计留痕</h1>
+  <div class="sub">每次问答自动记录 · 含被拒绝的问题</div>
+  <span class="whoami" id="whoami"></span>
+  <a class="back" href="/chat">← 返回问答</a>
+</header>
+<main id="main">
+  <div class="loading">正在读取审计日志…</div>
+</main>
+<script>
+const ACT = {
+  answered:  {label:'已作答',   cls:'b-answered'},
+  clarify:   {label:'反问澄清', cls:'b-clarify'},
+  rejected:  {label:'已拒答',   cls:'b-rejected'},
+  denied:    {label:'权限拒绝', cls:'b-denied'},
+  abolished: {label:'废止停答', cls:'b-abolished'},
+  secret:    {label:'涉密题录', cls:'b-secret'},
+  empty:     {label:'空问题',   cls:'b-empty'}
+};
+const ROLE_LABEL = {user:'普通用户', admin:'系统管理员', staff:'普通员工', hr:'人力资源部'};
+let ALL = [], curAct = 'all', curRole = 'all';
+
+function esc(s){ return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+/* 来源显示："制度名#条款"；兼容旧记录 "07-xxx_样例.md#条款" */
+function srcChip(s){
+  const i = s.indexOf('#');
+  let t = i >= 0 ? s.slice(0, i) : s, c = i >= 0 ? s.slice(i + 1) : '';
+  t = t.replace(/^\d+-/, '').replace(/_样例\.md$/, '').replace(/\.md$/, '');
+  return '<span class="srcchip">《' + esc(t) + '》' + esc(c ? ' ' + c : '') + '</span>';
+}
+
+function showMsg(icon, title, html){
+  document.getElementById('main').innerHTML =
+    '<div class="msgbox"><div class="icon">' + icon + '</div><h2>' + title + '</h2><p>' + html + '</p></div>';
+}
+
+async function load(){
+  let me = {};
+  try{ me = await (await fetch('/api/me')).json(); }catch(e){}
+  if(me && me.name) document.getElementById('whoami').textContent =
+    me.name + '（' + (ROLE_LABEL[me.role] || me.role) + '）';
+  try{
+    const r = await fetch('/api/audit?limit=500');
+    if(r.status === 403){
+      showMsg('🔒', '仅系统管理员可查看审计日志',
+        '当前登录：' + esc(me.name || '') + '（' + esc(ROLE_LABEL[me.role] || me.role || '未登录') + '），无权访问。<br>' +
+        '审计日志按登录身份判定，接口直接返回 403，不能通过改链接绕过。<br>' +
+        '如需权限，请联系系统管理员在账号里调整。<br>' +
+        '<a href="/chat">← 返回问答</a>');
+      return;
+    }
+    const d = await r.json();
+    ALL = (d.entries || []).reverse();   /* 最新的排前面 */
+    renderStats(d.total || ALL.length, d.counts, d.today);
+    renderTable();
+  }catch(e){
+    showMsg('⚠️', '读取失败', esc(String(e)));
+  }
+}
+
+function renderStats(total, counts, todayCount){
+  const d = new Date();
+  const today = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  const dayCnt = (typeof todayCount === 'number') ? todayCount
+               : ALL.filter(e => (e.ts || '').startsWith(today)).length;
+  const cnt = a => (counts && typeof counts[a] === 'number') ? counts[a]
+                    : ALL.filter(e => e.action === a).length;
+  const cards = [
+    ['', '累计问答', total],
+    ['', '今日问答', dayCnt],
+    ['', '已作答', cnt('answered')],
+    ['', '反问澄清', cnt('clarify')],
+    ['warn', '已拒答', cnt('rejected')],
+    ['warn', '权限拒绝', cnt('denied')],
+    ['warn', '废止停答', cnt('abolished')],
+    ['danger', '涉密题录', cnt('secret')]
+  ];
+  document.getElementById('main').innerHTML =
+    '<div class="cards">' + cards.map(c =>
+      '<div class="card ' + c[0] + '"><div class="n">' + c[2] + '</div><div class="l">' + c[1] + '</div></div>'
+    ).join('') + '</div>' +
+    '<div class="bar" id="bar">' +
+      '<span class="chip on" data-act="all">全部</span>' +
+      Object.keys(ACT).slice(0, 6).map(k =>
+        '<span class="chip" data-act="' + k + '">' + ACT[k].label + '</span>').join('') +
+      '<select id="rf">' +
+        '<option value="all">全部账号</option>' +
+        '<option value="user">普通用户</option>' +
+        '<option value="admin">系统管理员</option>' +
+      '</select>' +
+    '</div>' +
+    '<div class="panel"><table id="tb"><thead><tr>' +
+      '<th>时间</th><th>账号</th><th>问题</th><th>处置</th><th>命中条款</th><th>回答摘要</th>' +
+    '</tr></thead><tbody id="tbody"></tbody></table></div>' +
+    '<div class="foot">每条提问只落一个处置结果，六类互斥相加 = 累计问答 · 判定顺序：空问题 → 太笼统反问 → 检索命中 → 越权拒绝 → 已废止停答 → 涉密只给题录 → 分数不够拒答 → 作答 · 处置旁标「外发 N 字」的，是本次真正调用了外部大模型并外发的字符数（只含问题和命中的几条条款，不含整库、不含身份）· 卡片按全量日志统计，表格只列最近 500 条 · 数据来自本机 logs/audit.jsonl，问答编号（qid）可与 logs/feedback.jsonl 里的用户反馈对照 · 日志不入库、不上传。<br><b>注</b>：现有 120 份制度全部标注为「内部公开」，还没有一份「内部受限」，所以「权限拒绝」这一类目前实际不会触发——等办公室逐份定密后才会用上。</div>';
+
+  document.getElementById('bar').addEventListener('click', e => {
+    const chip = e.target.closest('.chip');
+    if(!chip) return;
+    curAct = chip.dataset.act;
+    document.querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c === chip));
+    renderTable();
+  });
+  document.getElementById('rf').addEventListener('change', e => {
+    curRole = e.target.value;
+    renderTable();
+  });
+}
+
+function renderTable(){
+  /* 早期日志里还有 staff / hr 两种角色，筛选时归到「普通用户」 */
+  const norm = r => (r === 'staff' || r === 'hr') ? 'user' : r;
+  const rows = ALL.filter(e =>
+    (curAct === 'all' || e.action === curAct) &&
+    (curRole === 'all' || norm(e.role) === curRole));
+  const tb = document.getElementById('tbody');
+  if(!rows.length){ tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#a8a29e;padding:30px">无匹配记录</td></tr>'; return; }
+  tb.innerHTML = rows.map((e, i) => {
+    const a = ACT[e.action] || {label:e.action, cls:'b-empty'};
+    const srcs = (e.sources || []).map(srcChip).join('') || '<span style="color:#c8c5c1">—</span>';
+    const ans = e.answer_head || '';
+    const short = ans.length > 60 ? ans.slice(0, 60) : ans;
+    const more = ans.length > 60
+      ? ' <span class="more" data-full="' + esc(ans) + '">展开</span>' : '';
+    const eg = (e.mode === 'llm' && e.egress)
+      ? '<span class="egress">外发 ' + (e.egress >= 1000
+          ? (e.egress / 1000).toFixed(1) + 'k' : e.egress) + ' 字</span>'
+      : '';
+    return '<tr>' +
+      '<td style="white-space:nowrap;color:#78716c">' + esc((e.ts || '').slice(5, 16)) + '</td>' +
+      '<td>' + '<span class="role-b">' + esc(e.role_label || ROLE_LABEL[e.role] || e.role) + '</span>' +
+        (e.empno ? '<span class="emp">' + esc(e.empno) + '</span>' : '') + '</td>' +
+      '<td class="q">' + esc(e.question) + '</td>' +
+      '<td><span class="badge ' + a.cls + '">' + a.label + '</span>' + eg + '</td>' +
+      '<td>' + srcs + '</td>' +
+      '<td class="ans" data-i="' + i + '">' + esc(short) + '<span class="ell">' + (ans.length > 60 ? '…' : '') + '</span>' + more + '</td>' +
+    '</tr>';
+  }).join('');
+  tb.querySelectorAll('.more').forEach(m => {
+    m.onclick = () => {
+      const cell = m.closest('.ans');
+      cell.firstChild.textContent = '';
+      cell.querySelector('.ell').textContent = '';
+      m.replaceWith(document.createTextNode(m.dataset.full));
+    };
+  });
+}
+
+load();
+</script>
+</body>
+</html>

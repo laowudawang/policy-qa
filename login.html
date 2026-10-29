@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>登录 · PolicyQA</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,"Microsoft YaHei",system-ui,sans-serif;background:#f5f5f4;color:#1c1c1c;
+       min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;
+       background-image:radial-gradient(circle at 18% 12%,#e3ebf5 0,transparent 45%),
+                        radial-gradient(circle at 82% 88%,#e9e4dd 0,transparent 42%)}
+  .card{width:100%;max-width:400px;background:#fff;border:1px solid #e7e5e4;border-radius:16px;
+        padding:30px 30px 22px;box-shadow:0 12px 40px rgba(31,58,95,.10)}
+  .brand{display:flex;align-items:center;gap:11px;margin-bottom:22px}
+  .logo{width:40px;height:40px;border-radius:10px;background:#1f3a5f;color:#fff;display:flex;
+        align-items:center;justify-content:center;font-weight:700;font-size:19px;flex-shrink:0}
+  .brand h1{font-size:17px;font-weight:600;letter-spacing:.5px}
+  .brand p{font-size:11.5px;color:#a8a29e;margin-top:2px;letter-spacing:.3px}
+  .tabs{display:flex;gap:2px;background:#f5f5f4;border-radius:9px;padding:3px;margin-bottom:18px}
+  .tabs button{flex:1;border:none;background:transparent;padding:7px;border-radius:7px;font-family:inherit;
+               font-size:13px;color:#78716c;cursor:pointer;transition:.15s}
+  .tabs button.on{background:#fff;color:#1f3a5f;font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  label{display:block;font-size:12.5px;color:#57534e;margin-bottom:13px}
+  label span{display:block;margin-bottom:5px}
+  input{width:100%;padding:10px 12px;border:1px solid #d6d3d1;border-radius:9px;font-size:14px;
+        font-family:inherit;outline:none;background:#fff;transition:border-color .15s}
+  input:focus{border-color:#1f3a5f;box-shadow:0 0 0 3px rgba(31,58,95,.08)}
+  .go{width:100%;padding:11px;background:#1f3a5f;color:#fff;border:none;border-radius:9px;font-size:14px;
+      font-family:inherit;cursor:pointer;margin-top:4px;transition:.15s}
+  .go:hover{background:#16314f}
+  .go:disabled{background:#94a3b8;cursor:not-allowed}
+  .err{min-height:18px;font-size:12.5px;color:#b91c1c;margin-top:9px;line-height:1.5}
+  .tip{margin-top:16px;padding-top:14px;border-top:1px dashed #e7e5e4;font-size:11.5px;color:#a8a29e;line-height:1.75}
+  .tip code{background:#f5f5f4;border-radius:3px;padding:1px 4px;font-size:11px;color:#78716c}
+  .tip b{color:#57534e;font-weight:600}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="brand">
+    <div class="logo">东</div>
+    <div>
+      <h1>PolicyQA</h1>
+      <p>某集团 · 制度问答</p>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button type="button" id="tabL" class="on">登录</button>
+    <button type="button" id="tabR">注册</button>
+  </div>
+
+  <form id="fL" autocomplete="on">
+    <label><span>工号 / 账号</span><input id="lEmp" autocomplete="username" placeholder="例如 dhls001"></label>
+    <label><span>密码</span><input id="lPw" type="password" autocomplete="current-password" placeholder="至少 6 位"></label>
+    <button class="go" id="lGo">登录</button>
+    <div class="err" id="lErr"></div>
+  </form>
+
+  <form id="fR" hidden>
+    <label><span>姓名</span><input id="rName" placeholder="真实姓名，审计留痕用" maxlength="20"></label>
+    <label><span>工号 / 账号</span><input id="rEmp" placeholder="3-20 位字母或数字" maxlength="20"></label>
+    <label><span>密码</span><input id="rPw" type="password" autocomplete="new-password" placeholder="至少 6 位"></label>
+    <label id="invBox" hidden><span>邀请码</span><input id="rInv" placeholder="集团统一发放"></label>
+    <button class="go" id="rGo">注册并登录</button>
+    <div class="err" id="rErr"></div>
+  </form>
+
+  <p class="tip" id="tip">
+    账号、会话与对话记录只存在本机 <code>data_private/</code>，不上传外部。<br>
+    <b>第一个注册的账号自动成为系统管理员</b>（可查看审计日志）。
+  </p>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const tabL = $('tabL'), tabR = $('tabR'), fL = $('fL'), fR = $('fR');
+
+function tab(which){
+  const reg = which === 'reg';
+  tabL.classList.toggle('on', !reg);
+  tabR.classList.toggle('on', reg);
+  fL.hidden = reg;
+  fR.hidden = !reg;
+  (reg ? $('rName') : $('lEmp')).focus();
+}
+tabL.onclick = () => tab('login');
+tabR.onclick = () => tab('reg');
+
+async function post(url, body){
+  const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'},
+                              body: JSON.stringify(body)});
+  let d = {};
+  try { d = await r.json(); } catch(e){}
+  if(!r.ok || d.error) throw new Error(d.error || ('请求失败（' + r.status + '）'));
+  return d;
+}
+
+$('lGo').onclick = async e => {
+  e.preventDefault();
+  const b = $('lGo'); b.disabled = true; $('lErr').textContent = '';
+  try{
+    await post('/api/login', {empno: $('lEmp').value, pw: $('lPw').value});
+    location.replace('/chat');
+  }catch(err){
+    $('lErr').textContent = err.message;
+    b.disabled = false;
+  }
+};
+
+$('rGo').onclick = async e => {
+  e.preventDefault();
+  const b = $('rGo'); b.disabled = true; $('rErr').textContent = '';
+  try{
+    const d = await post('/api/register', {
+      name: $('rName').value, empno: $('rEmp').value,
+      pw: $('rPw').value, invite: $('rInv').value
+    });
+    location.replace('/chat' + (d.first ? '' : ''));
+  }catch(err){
+    $('rErr').textContent = err.message;
+    b.disabled = false;
+  }
+};
+
+['lPw','lEmp'].forEach(id => $(id).onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); $('lGo').click(); } });
+['rPw','rName','rEmp','rInv'].forEach(id => $(id).onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); $('rGo').click(); } });
+
+// 还没人注册时直接停在注册页；开了邀请码就把邀请码框露出来
+fetch('/api/handshake').then(r => r.json()).then(d => {
+  if(d.invite) $('invBox').hidden = false;
+  if(d.first){
+    tab('reg');
+    $('tip').innerHTML = '还没有任何账号。<br><b>你注册的第一个账号将成为系统管理员</b>，' +
+      '之后同事自行注册即为普通用户。账号与对话只存在本机 <code>data_private/</code>。';
+  }
+}).catch(()=>{});
+</script>
+</body>
+</html>

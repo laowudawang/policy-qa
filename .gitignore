@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 语料目录整体不入库：样例含编造文号、真实制度属内部资料，一律不外传
+data/
+data_group/
+data_pub/
+
+# 账号、会话、对话记录（密码哈希 + 每个人的聊天），绝不出本机
+data_private/
+
+# 运行日志（审计 / 反馈），含使用记录，不入库
+logs/
+
+
+
+
+# 本地私有配置（含大模型 API Key），绝不入库
+.env
+.env.*
+!.env.example
+
+# 打包产物
+dist/
